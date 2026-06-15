@@ -1,0 +1,129 @@
+services:
+  namenode:
+    image: apache/hadoop:3.5.0
+    container_name: namenode
+    hostname: namenode
+    user: root
+    environment:
+      - HADOOP_HOME=/opt/hadoop
+    volumes:
+      - namenode:/opt/hadoop/data/nameNode
+      - ./hadoop_config:/opt/hadoop/etc/hadoop:z
+      - ./start-hdfs.sh:/start-hdfs.sh:z
+    ports:
+      - "9870:9870"
+      - "9000:9000"
+    command: [ "/bin/bash", "/start-hdfs.sh" ]
+    networks:
+      hdfs_network:
+        ipv4_address: 172.20.0.2
+
+  datanode:
+    image: apache/hadoop:3.5.0
+    container_name: datanode
+    hostname: datanode
+    user: root
+    environment:
+      - HADOOP_HOME=/opt/hadoop
+      - HADOOP_DATANODE_OPTS="-Xmx512m -Xms256m" 
+    ports:
+      - "9864:9864"
+    volumes:
+      - datanode:/opt/hadoop/data/dataNode
+      - ./hadoop_config:/opt/hadoop/etc/hadoop:z
+      - ./init-datanode.sh:/init-datanode.sh:z
+    depends_on:
+      - namenode
+    command: [ "/bin/bash", "/init-datanode.sh" ]
+    deploy:
+      resources:
+        limits:
+          memory: 1024M
+          cpus: '1.0'
+        reservations:
+          memory: 512M    # Ensure the DataNode always has at least 512MB
+    networks:
+      hdfs_network:
+        ipv4_address: 172.20.0.3
+
+  apps:
+    build:
+      context: .
+      dockerfile: Dockerfile.apps
+    container_name: hdfs_apps
+    hostname: hdfs_apps
+    volumes:
+      - ./scripts:/src/scripts:z
+      - ./data:/src/data:z
+      - ./hadoop_config:/opt/hadoop/etc/hadoop:z
+    networks:
+      hdfs_network:
+        ipv4_address: 172.20.0.10
+    command: tail -f /dev/null
+    depends_on:
+      - namenode
+      - datanode
+
+  # Apache Hive
+  # hive-metastore-db:
+  #   image: postgres:15-alpine
+  #   container_name: hive-metastore-db
+  #   environment:
+  #     POSTGRES_DB: metastore_db
+  #     POSTGRES_USER: hive
+  #     POSTGRES_PASSWORD: hiv3p4ssw0rd
+  #   volumes:
+  #     - hive_db:/var/lib/postgresql/data
+  #     - ./init-hive-db.sql:/docker-entrypoint-initdb.d/init-hive-db.sql:z
+  #   networks:
+  #     hdfs_network:
+  #       ipv4_address: 172.20.0.4
+  #   # Tell Docker how to verify Postgres is actually ready
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U hive -d metastore_db"]
+  #     interval: 5s
+  #     timeout: 5s
+  #     retries: 5
+
+  # hive:
+  #   image: apache/hive:4.0.0
+  #   container_name: hive
+  #   hostname: hive
+  #   depends_on:
+  #     namenode:
+  #       condition: service_started
+  #     datanode:
+  #       condition: service_started
+  #     hive-metastore-db:
+  #       condition: service_healthy
+  #   environment:
+  #     - HADOOP_HOME=/opt/hadoop
+  #     - HIVE_SERVER2_THRIFT_PORT=10000
+  #     - SERVICE_NAME=hiveserver2
+      
+  #     # Connection Credentials (Must match your Postgres service variables!)
+  #     - DB_DRIVER=postgres
+  #     - SERVICE_OPTS=-Djavax.jdo.option.ConnectionDriverName=org.postgresql.Driver -Djavax.jdo.option.ConnectionURL=jdbc:postgresql://hive-metastore-db:5432/metastore_db -Djavax.jdo.option.ConnectionUserName=hive -Djavax.jdo.option.ConnectionPassword=hiv3p4ssw0rd
+  #   ports:
+  #     - "10000:10000"
+  #     - "10002:10002"
+  #     - "9083:9083"
+  #   volumes:
+  #     - ./hadoop_config:/opt/hadoop/etc/hadoop:z
+  #   networks:
+  #     hdfs_network:
+  #       ipv4_address: 172.20.0.5
+
+
+volumes:
+  namenode:
+  datanode:
+  hive_db:
+
+
+networks:
+  hdfs_network:
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.20.0.0/16
