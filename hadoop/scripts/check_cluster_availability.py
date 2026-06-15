@@ -6,7 +6,7 @@ client = InsecureClient('http://namenode:9870', user='root')
 
 def run_hdfs_tasks():
     remote_path = '/user/python_test.txt'
-    content = "Hello Misati, this is data sent from Python to HDFS!"
+    content = "Hello Hadoop, this is data sent from Python to HDFS!"
 
     print("--- 1. Writing data to HDFS ---")
     with client.write(remote_path, encoding='utf-8', overwrite=True) as writer:
