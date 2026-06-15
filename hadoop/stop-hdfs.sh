@@ -1,3 +1,5 @@
+# No hash bang here for MacOS/Linux compatibility
+
 docker exec -it namenode hdfs dfsadmin -safemode enter
 docker exec -it namenode hdfs dfsadmin -saveNamespace
 
