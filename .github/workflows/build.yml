@@ -7,7 +7,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_PREFIX: mistidevs/bda_usiu
+  IMAGE_PREFIX: mistiusiu/bda_usiu
 
 jobs:
   version:
