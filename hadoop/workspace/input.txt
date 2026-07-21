@@ -1,0 +1,4 @@
+Hello Hadoop
+Hello Pig
+Pig is fun
+Hadoop and Pig
