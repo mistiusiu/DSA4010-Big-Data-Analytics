@@ -1,0 +1,93 @@
+name: Build Base Images
+
+on:
+  push:
+    branches:
+      - ghcr-build
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: mistidevs/bda_usiu
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+
+    outputs:
+      codename: ${{ steps.version.outputs.codename }}
+
+    steps:
+      - id: version
+        run: |
+          echo "codename=$(date +'%Y.%-m.%-d').${GITHUB_RUN_NUMBER}" >> $GITHUB_OUTPUT
+
+  build:
+    needs: version
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
+    strategy:
+      fail-fast: false
+
+      matrix:
+
+        include:
+
+          - name: pig
+            context: ./hadoop
+            dockerfile: Dockerfile.pig
+            version: 0.18.0
+            buildargs: |
+              HADOOP_VERSION=3.5.0
+              PIG_VERSION=0.18.0
+
+          - name: hive
+            context: ./hadoop
+            dockerfile: Dockerfile.hive
+            version: 4.0.0
+            buildargs: |
+              HIVE_VERSION=4.0.0
+              POSTGRES_JDBC_VERSION=42.7.3
+
+    steps:
+
+      - uses: actions/checkout@v6
+
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/metadata-action@v5
+        id: meta
+        with:
+          images: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.name }}
+
+          tags: |
+            type=raw,value=latest
+            type=raw,value=${{ matrix.version }}
+            type=raw,value=${{ needs.version.outputs.codename }}
+            type=sha,prefix=sha-
+
+      - uses: docker/build-push-action@v7
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+
+          push: true
+
+          build-args: ${{ matrix.buildargs }}
+
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
