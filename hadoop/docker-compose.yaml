@@ -155,6 +155,41 @@ services:
       hdfs_network:
         ipv4_address: 172.20.0.7
 
+  # Apache Spark
+  spark:
+    image: apache/spark:4.2.0-scala2.13-java25-python3-r-ubuntu
+    container_name: spark
+    hostname: spark
+
+    depends_on:
+      - namenode
+      - datanode
+
+    environment:
+      HADOOP_CONF_DIR: /opt/hadoop/etc/hadoop
+      SPARK_MODE: client
+      SPARK_HOME: /opt/spark
+      PATH: /opt/spark/bin:/opt/java/openjdk/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+    volumes:
+      - ./hadoop_config:/opt/hadoop/etc/hadoop:ro,z
+      - ./workspace:/workspace:z
+
+    working_dir: /workspace
+
+    stdin_open: true
+    tty: true
+
+    command: ["/bin/bash"]
+
+    ports:
+      - "4040:4040"   # Spark application UI (when running locally)
+      - "8080:8080"   # Optional if running a standalone master later
+
+    networks:
+      hdfs_network:
+        ipv4_address: 172.20.0.8
+
 
 volumes:
   namenode:
