@@ -43,7 +43,7 @@ jobs:
             version: 0.18.0
             buildargs: |
               HADOOP_VERSION=3.5.0
-              PIG_VERSION=0.18.0
+              PIG_BRANCH=branch-0.18
 
           - name: hive
             context: ./hadoop
