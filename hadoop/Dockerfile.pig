@@ -6,13 +6,16 @@ ARG HADOOP_VERSION=3.5.0
 FROM apache/hadoop:${HADOOP_VERSION} AS hadoop
 
 
+
 # ==============================================================================
 # Stage 2 - Build Apache Pig from Source
 # ==============================================================================
 
-FROM eclipse-temurin:17-jdk AS builder
+FROM eclipse-temurin:8-jdk AS builder
+
 
 ARG PIG_BRANCH=branch-0.18
+
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -28,7 +31,11 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 
-# Hadoop runtime
+
+# ------------------------------------------------------------------------------
+# Hadoop libraries
+# ------------------------------------------------------------------------------
+
 COPY --from=hadoop /opt/hadoop /opt/hadoop
 
 
@@ -39,12 +46,13 @@ ENV HADOOP_CONF_DIR=/opt/hadoop/etc/hadoop
 ENV PATH="${JAVA_HOME}/bin:${HADOOP_HOME}/bin:${PATH}"
 
 
+
+# ------------------------------------------------------------------------------
+# Clone Pig
+# ------------------------------------------------------------------------------
+
 WORKDIR /build
 
-
-# ==============================================================================
-# Clone Apache Pig source
-# ==============================================================================
 
 RUN git clone \
         --depth 1 \
@@ -52,12 +60,14 @@ RUN git clone \
         https://github.com/apache/pig.git
 
 
+
 WORKDIR /build/pig
 
 
-# ==============================================================================
-# Build Pig against Hadoop 3
-# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Build Pig for Hadoop 3
+# ------------------------------------------------------------------------------
 
 RUN ant \
         -Dhadoopversion=3 \
@@ -65,36 +75,69 @@ RUN ant \
         jar
 
 
-# ==============================================================================
-# Prepare Pig installation
-# ==============================================================================
 
-RUN mkdir -p /opt/pig
+# ------------------------------------------------------------------------------
+# Verify Hadoop 3 artifact exists
+# ------------------------------------------------------------------------------
+
+RUN find . -name "pig-core-h3.jar"
+
+
+
+# ------------------------------------------------------------------------------
+# Install Pig layout
+# ------------------------------------------------------------------------------
+
+RUN mkdir -p /opt/pig/lib
+
 
 
 #
-# Copy Pig distribution
+# Pig scripts and configuration
 #
 RUN cp -r \
         bin \
         conf \
-        lib \
         /opt/pig/
 
 
+
 #
-# Copy generated jars
+# Pig libraries
+#
+RUN cp -r \
+        lib/* \
+        /opt/pig/lib/
+
+
+
+#
+# Generated Hadoop-specific jars
 #
 RUN find build \
-        -maxdepth 2 \
         -name "*.jar" \
-        -exec cp {} /opt/pig/ \;
+        -exec cp {} /opt/pig/lib/ \;
+
 
 
 #
-# Ensure scripts executable
+# Verify final Pig layout
 #
+RUN find /opt/pig -name "*pig-core*"
+
+
+
 RUN chmod +x /opt/pig/bin/*
+
+
+
+# ------------------------------------------------------------------------------
+# Validate Pig before creating runtime image
+# ------------------------------------------------------------------------------
+
+RUN /opt/pig/bin/pig -version
+
+
 
 
 # ==============================================================================
@@ -102,6 +145,7 @@ RUN chmod +x /opt/pig/bin/*
 # ==============================================================================
 
 FROM eclipse-temurin:17-jre
+
 
 
 RUN apt-get update && \
@@ -112,29 +156,44 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 
+
+# ------------------------------------------------------------------------------
 # Hadoop runtime
+# ------------------------------------------------------------------------------
+
 COPY --from=hadoop /opt/hadoop /opt/hadoop
 
 
+
+# ------------------------------------------------------------------------------
 # Pig runtime
+# ------------------------------------------------------------------------------
+
 COPY --from=builder /opt/pig /opt/pig
+
 
 
 ENV JAVA_HOME=/opt/java/openjdk
 
+
 ENV HADOOP_HOME=/opt/hadoop
 ENV HADOOP_CONF_DIR=/opt/hadoop/etc/hadoop
 
+
 ENV PIG_HOME=/opt/pig
+
 
 
 ENV PIG_CLASSPATH="${HADOOP_HOME}/etc/hadoop:${HADOOP_HOME}/share/hadoop/common/*:${HADOOP_HOME}/share/hadoop/common/lib/*:${HADOOP_HOME}/share/hadoop/hdfs/*:${HADOOP_HOME}/share/hadoop/mapreduce/*:${HADOOP_HOME}/share/hadoop/yarn/*"
 
 
+
 ENV PATH="${JAVA_HOME}/bin:${HADOOP_HOME}/bin:${PIG_HOME}/bin:${PATH}"
 
 
+
 WORKDIR /workspace
+
 
 
 CMD ["pig"]
