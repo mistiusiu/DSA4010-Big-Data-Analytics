@@ -7,7 +7,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_PREFIX: mistidevs/bda_usiu
+  IMAGE_PREFIX: mistiusiu/bda_usiu
 
 jobs:
   version:
@@ -39,7 +39,7 @@ jobs:
 
           - name: pig
             context: ./hadoop
-            dockerfile: Dockerfile.pig
+            dockerfile: ./hadoop/Dockerfile.pig
             version: 0.18.0
             buildargs: |
               HADOOP_VERSION=3.5.0
@@ -47,7 +47,7 @@ jobs:
 
           - name: hive
             context: ./hadoop
-            dockerfile: Dockerfile.hive
+            dockerfile: ./hadoop/Dockerfile.hive
             version: 4.0.0
             buildargs: |
               HIVE_VERSION=4.0.0
